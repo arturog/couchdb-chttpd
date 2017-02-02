@@ -941,12 +941,14 @@ error_headers(#httpd{mochi_req=MochiReq}=Req, 401=Code, ErrorStr, ReasonStr) ->
                         % send the browser popup header no matter what if we are require_valid_user
                         {Code, [{"WWW-Authenticate", "Basic realm=\"server\""}]};
                     _False ->
-                        case MochiReq:accepts_content_type("application/json") of
-                        true ->
+                        case MochiReq:accepted_content_types(["application/json", "text/html"]) of
+                        [] ->
                             {Code, []};
-                        false ->
-                            case MochiReq:accepts_content_type("text/html") of
-                            true ->
+                        [Preferred | _] ->
+                            case Preferred of
+                            "application/json" ->
+                                {Code, []};
+                            "text/html" ->
                                 % Redirect to the path the user requested, not
                                 % the one that is used internally.
                                 UrlReturnRaw = case MochiReq:get_header_value("x-couchdb-vhost-path") of
@@ -961,7 +963,7 @@ error_headers(#httpd{mochi_req=MochiReq}=Req, 401=Code, ErrorStr, ReasonStr) ->
                                     "&reason=", couch_util:url_encode(ReasonStr)
                                 ]),
                                 {302, [{"Location", absolute_uri(Req, RedirectLocation)}]};
-                            false ->
+                            _ ->
                                 {Code, []}
                             end
                         end
